@@ -1,5 +1,5 @@
 def limpiar_precios(precio):
-    precio = precio.split(" ")[0].replace("$", "").replace(",", "")
+    precio = str(precio).split(" ")[0].replace("$", "").replace(",", "")
 
     return precio
 

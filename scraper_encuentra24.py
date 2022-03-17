@@ -29,7 +29,10 @@ while True:
     s = BeautifulSoup(response.text, "lxml")
 
     articulos_casa = s.findAll("article", attrs={"itemprop": "itemListElement"})
-    next_page = s.find("a", attrs={"rel":"next"}).get("href")
+    try:
+        next_page = s.find("a", attrs={"rel":"next"}).get("href")
+    except:
+        break
 
     for articulo in articulos_casa:
         titulos.append(articulo.find("div", attrs={"itemprop":"name"}).text)
@@ -47,3 +50,12 @@ while True:
     df_master = pd.concat([df_master, df_temp])
 
     c+=1
+
+df_master["precios"] = df_master["precios"].apply(limpiar_precios)
+df_master["location"] = df_master["location"].apply(lambda x:str(x).replace("\n ", "").strip())
+df_master["tamano"] = df_master["tamano"].apply(lambda x:str(x).replace(" m2", ""))
+df_master["precios"] = pd.to_numeric(df_master["precios"], errors="coerce")
+df_master["tamano"] = pd.to_numeric(df_master["tamano"], errors="coerce")
+
+
+df_master.to_excel("dummy_data.xlsx", index = False)
