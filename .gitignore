@@ -3,3 +3,4 @@ housingsv/
 pruebas.ipynb
 __pychache__/
 *.pyc
+*.sqlite3
