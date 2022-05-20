@@ -4,3 +4,6 @@ from django.http import HttpResponse
 
 def index(request):
     return HttpResponse("<p>Hola</p>")
+
+def table_view(request, title):
+    HttpResponse(f"<p> House: {title}")
