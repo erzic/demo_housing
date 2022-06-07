@@ -5,9 +5,20 @@ import numpy as np
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+from requests_html import HTMLSession
+
+from selenium import webdriver
 
 df_master = pd.DataFrame()
 c=0
+
+def limpieza_campos(header):
+    columnas = [i.text for i in header.findAll("span", attrs={"class":"info-name"})]
+    valores = [i.text for i in header.findAll("span", attrs={"class":"info-value"})]
+
+    return pd.DataFrame({i:[v] for (i,v) in zip(columnas, valores)})
+
+
 
 while True:
     titulos = []
@@ -17,13 +28,12 @@ while True:
     
     if c==0:
         url_encuentra24 = "https://www.encuentra24.com/el-salvador-es/bienes-raices-venta-de-propiedades-casas"
+        url_short = "https://www.encuentra24.com"
     else:
         url_short = "https://www.encuentra24.com"
         new_page = s.find("a", attrs={"title":"Continuar"}).get("href")
         url_encuentra24 = "".join([url_short,new_page])
 
-    print(url_encuentra24)
-    df_temp = pd.DataFrame()
     response = requests.get(url_encuentra24)
 
     s = BeautifulSoup(response.text, "lxml")
@@ -33,29 +43,60 @@ while True:
         next_page = s.find("a", attrs={"rel":"next"}).get("href")
     except:
         break
+    
+    print(f"link pagina {url_encuentra24}")
 
-    for articulo in articulos_casa:
-        titulos.append(articulo.find("div", attrs={"itemprop":"name"}).text)
-        precio.append(articulo.find("div", attrs={"itemprop":"price"}).text)
-        location.append(articulo.find("span", attrs={"class":"ann-info-item"}).text)
-        tamano.append(articulo.find("span", attrs={"class":"value"}).text)
+    # sacamos cada casa en cada page
 
+    link_casas = s.findAll('a', attrs={'class':'ann-box-title', 'itemprop':'url'})
 
-    url_short = "https://www.encuentra24.com"
-    new_page = s.find("a", attrs={"title":"Continuar"}).get("href")
-    url_encuentra24 = "".join([url_short,new_page])
+    # recorremos cada casa en cada page
+    
+    for link in link_casas:
+        df_pagina_1 = pd.DataFrame()
+        df_pagina_2 = pd.DataFrame()
+        info_casa = requests.get(''.join([url_short,link.get("href")]))
+        #print(''.join([url_short,link.get("href")]))
+        s_casa = BeautifulSoup(info_casa.text, 'lxml')
 
-    df_temp = pd.DataFrame({"titulos":titulos, "precios":precio, "location":location,"tamano":tamano})
+        header_casa_1 = s_casa.find('div', attrs={'class':'ad-info'})
+        try:
+            df_header_casa_1 = limpieza_campos(header_casa_1)
+        except:
+            continue
 
-    df_master = pd.concat([df_master, df_temp])
+        header_casa_2 = s_casa.find('div', attrs={'class':'ad-details'})
+        df_header_casa_2 = limpieza_campos(header_casa_2)
+        beneficios = s_casa.find('div', attrs={'class':'section-box'})
+    
+        scripts = s_casa.findAll("script", attrs={"type":"text/javascript"})
+        try:
+            script_con_location = [script for script in scripts if script.text.find("https://www.google.com/maps/embed") != -1][0].text
+
+            lat_long = script_con_location.split("&q=")[1].split("&zoom=")[0]
+        except:
+            #print("No existe data geográfica")
+            lat_long = np.nan
+            pass
+
+        df_temp_2 = pd.concat([df_header_casa_1, df_header_casa_2], axis=1)
+        df_temp_2["link"] = ''.join([url_short,link.get("href")])
+        df_temp_2["beneficios_var"] = beneficios.text
+
+        try:
+            df_temp_2["lat_long"] = lat_long
+        except:
+            df_temp_2["lat_long"] = np.nan
+        
+        df_master = pd.concat([df_master, df_temp_2],ignore_index=True)
 
     c+=1
-
-df_master["precios"] = df_master["precios"].apply(limpiar_precios)
-df_master["location"] = df_master["location"].apply(lambda x:str(x).replace("\n ", "").strip())
-df_master["tamano"] = df_master["tamano"].apply(lambda x:str(x).replace(" m2", ""))
-df_master["precios"] = pd.to_numeric(df_master["precios"], errors="coerce")
-df_master["tamano"] = pd.to_numeric(df_master["tamano"], errors="coerce")
+    #df_master.reset_index(inplace=True)
 
 
-df_master.to_excel("dummy_data.xlsx", index = False)
+df_master_limpio =  df_master.copy()
+
+df_master_limpio["Precio:"]= df_master_limpio["Precio:"].apply(limpiar_precios)
+df_master_limpio["Precio/M² de construcción:"] = df_master_limpio["Precio/M² de construcción:"].apply(limpiar_precios)
+
+df_master_limpio.to_csv("encuentra24_ventas_casas.csv", encoding="utf-8")
