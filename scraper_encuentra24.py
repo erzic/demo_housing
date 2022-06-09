@@ -99,4 +99,10 @@ df_master_limpio =  df_master.copy()
 df_master_limpio["Precio:"]= df_master_limpio["Precio:"].apply(limpiar_precios)
 df_master_limpio["Precio/M² de construcción:"] = df_master_limpio["Precio/M² de construcción:"].apply(limpiar_precios)
 
+
+# limpiando dataframe
+cols = [i.replace(":", "").replace("/M²", "/m2") for i in df_master_limpio.columns()]
+
+df_master_limpio = pd.DataFrame(df_master_limpio.values, columns=cols)
+
 df_master_limpio.to_csv("encuentra24_ventas_casas.csv", encoding="utf-8")
