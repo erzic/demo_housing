@@ -5,7 +5,7 @@ import numpy as np
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from requests_html import HTMLSession
+#from requests_html import HTMLSession
 
 from selenium import webdriver
 
